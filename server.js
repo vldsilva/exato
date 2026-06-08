@@ -69,7 +69,7 @@ app.post('/api/despesas', async (req, res) => {
   }
 });
 
-const PORTA = 3000;
+const PORTA = process.env.PORT || 3000;
 app.listen(PORTA, () => {
   console.log(`API rodando na porta http://localhost:${PORTA}`);
 });
