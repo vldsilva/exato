@@ -58,7 +58,7 @@ app.get('/api/contas/:empresa', async (req, res) => {
       SELECT pla_contareduzida, pla_descricao 
       FROM con_plano_contas 
       WHERE pla_empresa = $1 
-      ORDER BY pla_descricao
+      ORDER BY pla_conta
     `;
     
     const resultado = await pool.query(query, [empresaId]);
