@@ -70,20 +70,22 @@ app.get('/api/contas/:empresa', async (req, res) => {
   }
 });
 
-// Rota para o Relatório de Balancete
+// Rota para o Relatório de Balancete com Cálculo de Lançamentos
 app.get('/api/balancete/:empresa', async (req, res) => {
   try {
     const empresaId = req.params.empresa;
     
-    // Consulta buscando o plano de contas ordenado pela hierarquia.
-    // NOTA: Para este primeiro passo de estruturação visual, estamos trazendo as contas.
-    // Posteriormente, você pode evoluir este SQL com um JOIN e SUM(lan_valor) 
-    // para trazer as colunas reais de Saldo Anterior e Saldo Atual.
+    // O SQL agora vai na tabela con_lancamento e soma todos os débitos e créditos de cada conta
     const query = `
-      SELECT pla_contareduzida, pla_conta, pla_descricao 
-      FROM con_plano_contas 
-      WHERE pla_empresa = $1 
-      ORDER BY pla_conta
+      SELECT 
+        p.pla_contareduzida, 
+        p.pla_conta, 
+        p.pla_descricao,
+        COALESCE((SELECT SUM(lan_valor) FROM con_lancamento WHERE lan_contadebito = p.pla_contareduzida AND lan_empresa = $1), 0) AS total_debito,
+        COALESCE((SELECT SUM(lan_valor) FROM con_lancamento WHERE lan_contacredito = p.pla_contareduzida AND lan_empresa = $1), 0) AS total_credito
+      FROM con_plano_contas p
+      WHERE p.pla_empresa = $1 
+      ORDER BY p.pla_conta
     `;
     
     const resultado = await pool.query(query, [empresaId]);
