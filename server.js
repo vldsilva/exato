@@ -55,7 +55,7 @@ app.get('/api/contas/:empresa', async (req, res) => {
     
     // Supondo que a chave primária seja pla_codigo. Adapte se for outro nome.
     const query = `
-      SELECT pla_codigo, pla_descricao 
+      SELECT pla_contareduzida, pla_descricao 
       FROM con_plano_contas 
       WHERE pla_empresa = $1 
       ORDER BY pla_descricao
