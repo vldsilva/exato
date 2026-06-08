@@ -48,6 +48,28 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Rota para buscar o Plano de Contas da empresa
+app.get('/api/contas/:empresa', async (req, res) => {
+  try {
+    const empresaId = req.params.empresa;
+    
+    // Supondo que a chave primária seja pla_codigo. Adapte se for outro nome.
+    const query = `
+      SELECT pla_codigo, pla_descricao 
+      FROM con_plano_contas 
+      WHERE pla_empresa = $1 
+      ORDER BY pla_descricao
+    `;
+    
+    const resultado = await pool.query(query, [empresaId]);
+    res.status(200).json(resultado.rows);
+    
+  } catch (erro) {
+    console.error('Erro ao buscar contas:', erro);
+    res.status(500).json({ mensagem: 'Erro ao buscar plano de contas no banco.' });
+  }
+});
+
 // Rota de Gravação de Despesas (Mantida igual)
 app.post('/api/despesas', async (req, res) => {
   try {
