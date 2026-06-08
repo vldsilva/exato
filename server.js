@@ -70,6 +70,31 @@ app.get('/api/contas/:empresa', async (req, res) => {
   }
 });
 
+// Rota para o Relatório de Balancete
+app.get('/api/balancete/:empresa', async (req, res) => {
+  try {
+    const empresaId = req.params.empresa;
+    
+    // Consulta buscando o plano de contas ordenado pela hierarquia.
+    // NOTA: Para este primeiro passo de estruturação visual, estamos trazendo as contas.
+    // Posteriormente, você pode evoluir este SQL com um JOIN e SUM(lan_valor) 
+    // para trazer as colunas reais de Saldo Anterior e Saldo Atual.
+    const query = `
+      SELECT pla_contareduzida, pla_conta, pla_descricao 
+      FROM con_plano_contas 
+      WHERE pla_empresa = $1 
+      ORDER BY pla_conta
+    `;
+    
+    const resultado = await pool.query(query, [empresaId]);
+    res.status(200).json(resultado.rows);
+    
+  } catch (erro) {
+    console.error('Erro ao buscar balancete:', erro);
+    res.status(500).json({ mensagem: 'Erro ao gerar dados do relatório.' });
+  }
+});
+
 // Rota de Gravação de Despesas (Mantida igual)
 app.post('/api/despesas', async (req, res) => {
   try {
