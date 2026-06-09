@@ -209,6 +209,48 @@ app.post('/api/despesas', async (req, res) => {
   }
 });
 
+// ==========================================
+// Rota para Buscar Lançamentos (Para Edição)
+// ==========================================
+app.get('/api/lancamentos/:empresa', async (req, res) => {
+  try {
+    const empresaId = req.params.empresa;
+    const query = `
+      SELECT lan_codigo, TO_CHAR(lan_data, 'YYYY-MM-DD') as lan_data, lan_contadebito, lan_contacredito, lan_valor, lan_historico
+      FROM con_lancamento
+      WHERE lan_empresa = $1
+      ORDER BY lan_codigo DESC
+      LIMIT 100
+    `;
+    const resultado = await pool.query(query, [empresaId]);
+    res.status(200).json(resultado.rows);
+  } catch (erro) {
+    console.error('Erro ao buscar lançamentos:', erro);
+    res.status(500).json({ mensagem: 'Erro ao buscar lançamentos.' });
+  }
+});
+
+// ==========================================
+// Rota para Atualizar Lançamento Existente
+// ==========================================
+app.put('/api/despesas/:id', async (req, res) => {
+  try {
+    const lan_codigo = req.params.id;
+    const { empresa, data, conta_debito, conta_credito, valor, historico } = req.body;
+
+    const query = `
+      UPDATE con_lancamento
+      SET lan_data = $1, lan_contadebito = $2, lan_contacredito = $3, lan_valor = $4, lan_historico = $5
+      WHERE lan_codigo = $6 AND lan_empresa = $7
+    `;
+    await pool.query(query, [data, conta_debito, conta_credito, valor, historico, lan_codigo, empresa]);
+    res.status(200).json({ mensagem: 'Atualizado com sucesso!' });
+  } catch (erro) {
+    console.error('Erro ao atualizar despesa:', erro);
+    res.status(500).json({ mensagem: 'Erro ao atualizar no banco.' });
+  }
+});
+
 const PORTA = process.env.PORT || 3000;
 app.listen(PORTA, () => {
   console.log(`API rodando na porta http://localhost:${PORTA}`);
