@@ -48,25 +48,24 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Rota para buscar o Plano de Contas da empresa
+// ==========================================
+// Rota para Buscar Plano de Contas
+// ==========================================
 app.get('/api/contas/:empresa', async (req, res) => {
   try {
     const empresaId = req.params.empresa;
-    
-    // Supondo que a chave primária seja pla_codigo. Adapte se for outro nome.
+    // O segredo está aqui: adicionamos o pla_conta no SELECT
     const query = `
-      SELECT pla_contareduzida, pla_descricao 
+      SELECT pla_contareduzida, pla_conta, pla_descricao 
       FROM con_plano_contas 
       WHERE pla_empresa = $1 
       ORDER BY pla_conta
     `;
-    
     const resultado = await pool.query(query, [empresaId]);
     res.status(200).json(resultado.rows);
-    
   } catch (erro) {
     console.error('Erro ao buscar contas:', erro);
-    res.status(500).json({ mensagem: 'Erro ao buscar plano de contas no banco.' });
+    res.status(500).json({ mensagem: 'Erro ao buscar plano de contas.' });
   }
 });
 
