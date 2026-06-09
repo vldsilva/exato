@@ -210,19 +210,45 @@ app.post('/api/despesas', async (req, res) => {
 });
 
 // ==========================================
-// Rota para Buscar Lançamentos (Para Edição)
+// Rota para Buscar Lançamentos (Para Edição com Filtros)
 // ==========================================
 app.get('/api/lancamentos/:empresa', async (req, res) => {
   try {
     const empresaId = req.params.empresa;
-    const query = `
+    const { texto, conta, dataInicio, dataFim } = req.query;
+
+    let query = `
       SELECT lan_codigo, TO_CHAR(lan_data, 'YYYY-MM-DD') as lan_data, lan_contadebito, lan_contacredito, lan_valor, lan_historico
       FROM con_lancamento
       WHERE lan_empresa = $1
-      ORDER BY lan_codigo DESC
-      LIMIT 100
     `;
-    const resultado = await pool.query(query, [empresaId]);
+    const params = [empresaId];
+    let paramCount = 2;
+
+    // Filtro de Data
+    if (dataInicio && dataFim) {
+        query += ` AND lan_data >= $${paramCount} AND lan_data <= $${paramCount+1}`;
+        params.push(dataInicio, dataFim);
+        paramCount += 2;
+    }
+
+    // Filtro de Conta (Procura tanto no débito quanto no crédito)
+    if (conta) {
+        query += ` AND (lan_contadebito = $${paramCount} OR lan_contacredito = $${paramCount})`;
+        params.push(conta);
+        paramCount++;
+    }
+
+    // Filtro de Texto (Procura no Histórico, no Valor e no ID)
+    if (texto) {
+        query += ` AND (lan_historico ILIKE $${paramCount} OR lan_codigo::text = $${paramCount} OR lan_valor::text LIKE $${paramCount})`;
+        params.push(`%${texto}%`);
+        paramCount++;
+    }
+
+    query += ` ORDER BY lan_data DESC, lan_codigo DESC LIMIT 100`;
+
+    const resultado = await pool.query(query, params);
     res.status(200).json(resultado.rows);
   } catch (erro) {
     console.error('Erro ao buscar lançamentos:', erro);
