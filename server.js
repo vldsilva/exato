@@ -142,6 +142,52 @@ app.get('/api/dre/:empresa/:ano', async (req, res) => {
   }
 });
 
+// Rota para Consulta de Extrato em Tela (Razão Contábil)
+app.get('/api/extrato/:empresa', async (req, res) => {
+  try {
+    const empresaId = req.params.empresa;
+    const { conta, dataInicio, dataFim } = req.query;
+
+    // 1. Busca o Saldo Anterior (Tudo que aconteceu ANTES da data inicial)
+    // Se a conta for Débito ela soma, se for Crédito ela subtrai.
+    const querySaldo = `
+      SELECT 
+        COALESCE(SUM(CASE WHEN lan_contadebito = $2 THEN lan_valor ELSE 0 END), 0) -
+        COALESCE(SUM(CASE WHEN lan_contacredito = $2 THEN lan_valor ELSE 0 END), 0) AS saldo_anterior
+      FROM con_lancamento
+      WHERE lan_empresa = $1 AND lan_data < $3 AND (lan_contadebito = $2 OR lan_contacredito = $2)
+    `;
+    const resSaldo = await pool.query(querySaldo, [empresaId, conta, dataInicio]);
+    const saldoAnterior = resSaldo.rows[0]?.saldo_anterior || 0;
+
+    // 2. Busca o histórico de movimentações dentro do período
+    const queryMov = `
+      SELECT 
+        lan_codigo,
+        lan_data,
+        lan_historico,
+        CASE WHEN lan_contadebito = $2 THEN lan_contacredito ELSE lan_contadebito END as contra_partida,
+        CASE WHEN lan_contadebito = $2 THEN lan_valor ELSE (lan_valor * -1) END as valor
+      FROM con_lancamento
+      WHERE lan_empresa = $1 
+        AND lan_data >= $3 
+        AND lan_data <= $4
+        AND (lan_contadebito = $2 OR lan_contacredito = $2)
+      ORDER BY lan_data ASC, lan_codigo ASC
+    `;
+    const resMov = await pool.query(queryMov, [empresaId, conta, dataInicio, dataFim]);
+
+    res.status(200).json({
+      saldo_anterior: parseFloat(saldoAnterior),
+      movimentos: resMov.rows
+    });
+
+  } catch (erro) {
+    console.error('Erro ao buscar extrato:', erro);
+    res.status(500).json({ mensagem: 'Erro ao gerar extrato no banco.' });
+  }
+});
+
 // Rota de Gravação de Despesas (Mantida igual)
 app.post('/api/despesas', async (req, res) => {
   try {
