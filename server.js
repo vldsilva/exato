@@ -110,6 +110,38 @@ app.get('/api/balancete/:empresa', async (req, res) => {
   }
 });
 
+// Rota para o Relatório de DRE Comparativo (12 Meses)
+app.get('/api/dre/:empresa/:ano', async (req, res) => {
+  try {
+    const empresaId = req.params.empresa;
+    const ano = req.params.ano;
+    
+    // O SQL extrai o mês de cada lançamento e cria 12 colunas virtuais.
+    // Para DRE, a lógica é CRÉDITO (Receita) - DÉBITO (Despesa)
+    const query = `
+      SELECT 
+        p.pla_contareduzida, p.pla_conta, p.pla_descricao,
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => `
+          COALESCE(SUM(CASE WHEN l.lan_contacredito = p.pla_contareduzida AND EXTRACT(MONTH FROM l.lan_data) = ${m} THEN l.lan_valor ELSE 0 END), 0) -
+          COALESCE(SUM(CASE WHEN l.lan_contadebito = p.pla_contareduzida AND EXTRACT(MONTH FROM l.lan_data) = ${m} THEN l.lan_valor ELSE 0 END), 0) AS m${m}
+        `).join(', ')}
+      FROM con_plano_contas p
+      LEFT JOIN con_lancamento l ON (l.lan_contadebito = p.pla_contareduzida OR l.lan_contacredito = p.pla_contareduzida) 
+                                 AND l.lan_empresa = $1 AND EXTRACT(YEAR FROM l.lan_data) = $2
+      WHERE p.pla_empresa = $1 AND p.pla_conta::text LIKE '3%'
+      GROUP BY p.pla_contareduzida, p.pla_conta, p.pla_descricao
+      ORDER BY p.pla_conta
+    `;
+    
+    const resultado = await pool.query(query, [empresaId, ano]);
+    res.status(200).json(resultado.rows);
+    
+  } catch (erro) {
+    console.error('Erro ao buscar DRE:', erro);
+    res.status(500).json({ mensagem: 'Erro ao gerar dados do DRE.' });
+  }
+});
+
 // Rota de Gravação de Despesas (Mantida igual)
 app.post('/api/despesas', async (req, res) => {
   try {
