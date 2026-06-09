@@ -246,7 +246,7 @@ app.get('/api/lancamentos/:empresa', async (req, res) => {
         paramCount++;
     }
 
-    query += ` ORDER BY lan_data DESC, lan_codigo DESC LIMIT 100`;
+  query += ` ORDER BY lan_data ASC, lan_codigo ASC LIMIT 100`;
 
     const resultado = await pool.query(query, params);
     res.status(200).json(resultado.rows);
