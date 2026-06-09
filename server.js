@@ -297,6 +297,37 @@ app.delete('/api/despesas/:id/:empresa', async (req, res) => {
   }
 });
 
+// ==========================================
+// Rota para Importação em Lote via Excel
+// ==========================================
+app.post('/api/despesas/lote', async (req, res) => {
+  const cliente = await pool.connect();
+  try {
+    const lancamentos = req.body;
+    
+    // Inicia uma Transação de segurança (Se 1 linha der erro, ele cancela tudo para não sujar o banco)
+    await cliente.query('BEGIN'); 
+
+    for (let l of lancamentos) {
+      const query = `
+        INSERT INTO con_lancamento (lan_empresa, lan_data, lan_contadebito, lan_contacredito, lan_valor, lan_historico)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `;
+      await cliente.query(query, [l.empresa, l.data, l.conta_debito, l.conta_credito, l.valor, l.historico]);
+    }
+
+    await cliente.query('COMMIT'); // Salva definitivamente
+    res.status(201).json({ mensagem: `${lancamentos.length} lançamentos importados!` });
+    
+  } catch (erro) {
+    await cliente.query('ROLLBACK'); // Desfaz a operação
+    console.error('Erro na importação em lote:', erro);
+    res.status(500).json({ mensagem: 'Erro ao gravar o lote no banco de dados.' });
+  } finally {
+    cliente.release();
+  }
+});
+
 const PORTA = process.env.PORT || 3000;
 app.listen(PORTA, () => {
   console.log(`API rodando na porta http://localhost:${PORTA}`);
