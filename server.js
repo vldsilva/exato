@@ -277,6 +277,24 @@ app.put('/api/despesas/:id', async (req, res) => {
   }
 });
 
+// ==========================================
+// Rota para Excluir Lançamento Existente
+// ==========================================
+app.delete('/api/despesas/:id/:empresa', async (req, res) => {
+  try {
+    const lan_codigo = req.params.id;
+    const empresa = req.params.empresa; // Trava de segurança para garantir que é da empresa certa
+
+    const query = `DELETE FROM con_lancamento WHERE lan_codigo = $1 AND lan_empresa = $2`;
+    await pool.query(query, [lan_codigo, empresa]);
+
+    res.status(200).json({ mensagem: 'Lançamento excluído com sucesso!' });
+  } catch (erro) {
+    console.error('Erro ao excluir despesa:', erro);
+    res.status(500).json({ mensagem: 'Erro ao excluir no banco.' });
+  }
+});
+
 const PORTA = process.env.PORT || 3000;
 app.listen(PORTA, () => {
   console.log(`API rodando na porta http://localhost:${PORTA}`);
