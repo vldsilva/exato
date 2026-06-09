@@ -328,6 +328,36 @@ app.post('/api/despesas/lote', async (req, res) => {
   }
 });
 
+// ==========================================
+// Rota para Excluir Lançamentos em Lote
+// ==========================================
+app.post('/api/despesas/excluir-lote', async (req, res) => {
+  const cliente = await pool.connect();
+  try {
+    const { ids, empresa } = req.body; // Recebe um array com os códigos: [100, 101, 102]
+    
+    if (!ids || ids.length === 0) {
+        return res.status(400).json({ mensagem: 'Nenhum ID informado para exclusão.' });
+    }
+
+    await cliente.query('BEGIN'); 
+    
+    // O comando "ANY($1::int[])" permite ao PostgreSQL excluir vários IDs em uma única tacada
+    const query = `DELETE FROM con_lancamento WHERE lan_empresa = $2 AND lan_codigo = ANY($1::int[])`;
+    await cliente.query(query, [ids, empresa]);
+    
+    await cliente.query('COMMIT'); 
+    res.status(200).json({ mensagem: `${ids.length} lançamentos excluídos com sucesso!` });
+    
+  } catch (erro) {
+    await cliente.query('ROLLBACK');
+    console.error('Erro na exclusão em lote:', erro);
+    res.status(500).json({ mensagem: 'Erro ao excluir o lote no banco de dados.' });
+  } finally {
+    cliente.release();
+  }
+});
+
 const PORTA = process.env.PORT || 3000;
 app.listen(PORTA, () => {
   console.log(`API rodando na porta http://localhost:${PORTA}`);
