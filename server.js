@@ -54,13 +54,15 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/contas/:empresa', async (req, res) => {
   try {
     const empresaId = req.params.empresa;
-    // O segredo está aqui: adicionamos o pla_conta no SELECT
+    
+    // VERIFIQUE SE O SEU CÓDIGO TEM O "pla_conta" AQUI NO SELECT:
     const query = `
       SELECT pla_contareduzida, pla_conta, pla_descricao 
       FROM con_plano_contas 
       WHERE pla_empresa = $1 
       ORDER BY pla_conta
     `;
+    
     const resultado = await pool.query(query, [empresaId]);
     res.status(200).json(resultado.rows);
   } catch (erro) {
