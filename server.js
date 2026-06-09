@@ -70,25 +70,38 @@ app.get('/api/contas/:empresa', async (req, res) => {
   }
 });
 
-// Rota para o Relatório de Balancete com Cálculo de Lançamentos
+// Rota para o Relatório de Balancete Mensal (Com Saldo Anterior e Movimento)
 app.get('/api/balancete/:empresa', async (req, res) => {
   try {
     const empresaId = req.params.empresa;
+    const mes = req.query.mes || '01';
+    const ano = req.query.ano || '2026';
     
-    // O SQL agora vai na tabela con_lancamento e soma todos os débitos e créditos de cada conta
+    // Monta o formato YYYY-MM-01 (O primeiro dia do mês escolhido)
+    const mesFormatado = mes.toString().padStart(2, '0');
+    const dataInicio = `${ano}-${mesFormatado}-01`;
+    
     const query = `
       SELECT 
         p.pla_contareduzida, 
         p.pla_conta, 
         p.pla_descricao,
-        COALESCE((SELECT SUM(lan_valor) FROM con_lancamento WHERE lan_contadebito = p.pla_contareduzida AND lan_empresa = $1), 0) AS total_debito,
-        COALESCE((SELECT SUM(lan_valor) FROM con_lancamento WHERE lan_contacredito = p.pla_contareduzida AND lan_empresa = $1), 0) AS total_credito
+        
+        -- 1. SALDO ANTERIOR (Tudo que aconteceu ANTES do dia 1º do mês selecionado)
+        COALESCE((SELECT SUM(lan_valor) FROM con_lancamento WHERE lan_contadebito = p.pla_contareduzida AND lan_empresa = $1 AND lan_data < $2::date), 0) -
+        COALESCE((SELECT SUM(lan_valor) FROM con_lancamento WHERE lan_contacredito = p.pla_contareduzida AND lan_empresa = $1 AND lan_data < $2::date), 0) AS saldo_anterior,
+        
+        -- 2. MOVIMENTO DO MÊS (Tudo que aconteceu DENTRO do mês selecionado)
+        COALESCE((SELECT SUM(lan_valor) FROM con_lancamento WHERE lan_contadebito = p.pla_contareduzida AND lan_empresa = $1 AND lan_data >= $2::date AND lan_data < ($2::date + interval '1 month')), 0) -
+        COALESCE((SELECT SUM(lan_valor) FROM con_lancamento WHERE lan_contacredito = p.pla_contareduzida AND lan_empresa = $1 AND lan_data >= $2::date AND lan_data < ($2::date + interval '1 month')), 0) AS movimento_mes
+
       FROM con_plano_contas p
       WHERE p.pla_empresa = $1 
       ORDER BY p.pla_conta
     `;
     
-    const resultado = await pool.query(query, [empresaId]);
+    // Passamos a empresa ($1) e a data inicial ($2) para o SQL
+    const resultado = await pool.query(query, [empresaId, dataInicio]);
     res.status(200).json(resultado.rows);
     
   } catch (erro) {
